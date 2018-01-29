@@ -147,8 +147,6 @@ no different than a table.
 class SearchResult < ActiveRecord::Base
   belongs_to :searchable, polymorphic: true
 
-  private
-
   # this isn't strictly necessary, but it will prevent
   # rails from calling save, which would fail anyway.
   def readonly?
@@ -213,6 +211,7 @@ Scenic gives you `drop_view` too:
 ```ruby
 def change
   drop_view :search_results, revert_to_version: 2
+  drop_view :materialized_admin_reports, revert_to_version: 3, materialized: true
 end
 ```
 
@@ -271,6 +270,7 @@ We are aware of the following existing adapter libraries for Scenic which may
 meet your needs:
 
 * [scenic_sqlite_adapter](https://github.com/pdebelak/scenic_sqlite_adapter)
+* [scenic-mysql_adapter](https://github.com/EmpaticoOrg/scenic-mysql_adapter.)
 
 ## About
 
