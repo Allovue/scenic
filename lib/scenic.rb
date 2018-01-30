@@ -8,6 +8,7 @@ require "scenic/statements"
 require "scenic/version"
 require "scenic/view"
 require "scenic/index"
+require "scenic/trigger"
 
 # Scenic adds methods `ActiveRecord::Migration` to create and manage database
 # views in Rails applications.

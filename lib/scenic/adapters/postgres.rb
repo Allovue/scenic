@@ -1,7 +1,9 @@
 require_relative "postgres/connection"
 require_relative "postgres/errors"
 require_relative "postgres/index_reapplication"
+require_relative "postgres/trigger_reapplication"
 require_relative "postgres/indexes"
+require_relative "postgres/triggers"
 require_relative "postgres/views"
 require_relative "postgres/refresh_dependencies"
 
@@ -83,17 +85,25 @@ module Scenic
           # Get existing views that could be dependent on this one.
           existing_views = views.reject{|v| v.name == name}
 
-          # Get indexes of existing materialized views 
+          # Get indexes of existing materialized views
           indexes = Indexes.new(connection: connection)
           view_indexes = existing_views.select(&:materialized).flat_map do |view|
             indexes.on(view.name)
           end
+          # Get a list of existing triggers
+          triggers = Triggers.new(connection: connection)
+          view_triggers = existing_views.map do |view|
+            triggers.on(view.name)
+          end.flatten
+          order_of_views =  order_of_view_dependencies_for(existing_views)
         end
 
         drop_view(name, cascade)
         create_view(name, sql_definition)
 
-        recreate_dropped_views(existing_views, views, view_indexes) if cascade
+        if cascade
+          recreate_dropped_views(existing_views, views, indexes: view_indexes, triggers: view_triggers, view_order: order_of_views)
+        end
       end
 
       # Replaces a view in the database using `CREATE OR REPLACE VIEW`.
@@ -172,11 +182,17 @@ module Scenic
           # Get existing views that could be dependent on this one.
           existing_views = views.reject{|v| v.name == name}
 
-          # Get indexes of existing materialized views 
+          # Get indexes of existing materialized views
           indexes = Indexes.new(connection: connection)
           view_indexes = existing_views.select(&:materialized).flat_map do |view|
             indexes.on(view.name)
           end
+          # Get a list of existing triggers
+          triggers = Triggers.new(connection: connection)
+          view_triggers = existing_views.map do |view|
+            triggers.on(view.name)
+          end.flatten
+          order_of_views = order_of_view_dependencies_for(existing_views)
         end
 
         IndexReapplication.new(connection: connection).on(name) do
@@ -184,7 +200,7 @@ module Scenic
           create_materialized_view(name, sql_definition)
         end
 
-        recreate_dropped_views(existing_views, views, view_indexes) if cascade
+        recreate_dropped_views(existing_views, views, indexes: view_indexes, triggers: view_triggers, view_order: order_of_views) if cascade
       end
 
       # Drops a materialized view in the database
@@ -269,21 +285,63 @@ module Scenic
         )
       end
 
-      def recreate_dropped_views(old_views, current_views, indexes=[])
+      def order_of_view_dependencies_for(array_of_views)
+
+        query_fragment = array_of_views.map {|view| "'#{view.name}'"}.join(', ')
+        sql = <<-SQL
+          WITH RECURSIVE t AS
+            -- Get every view & materialized view, assign a level 0
+            ( SELECT c.oid,
+                     c.relname,
+                     0 AS LEVEL
+             FROM pg_class c
+             JOIN pg_namespace ON c.relnamespace = pg_namespace.oid
+             WHERE c.relkind IN ('v', 'm') AND pg_namespace.nspname = 'public'
+             -- Union back on ourselves, increasing the level to indicate that the view is dependent
+             UNION ALL SELECT c.oid,
+                              c.relname,
+                              a.level+1
+             FROM t a
+             JOIN pg_depend d ON d.refobjid=a.oid
+             JOIN pg_rewrite w ON w.oid= d.objid AND w.ev_class!=a.oid
+             JOIN pg_class c ON c.oid=w.ev_class)
+          -- Take the max level for each view.
+          SELECT relname, MAX(level) AS level
+          FROM t
+          WHERE relname IN (#{query_fragment})
+          GROUP BY relname
+          ORDER BY level asc;
+        SQL
+
+        connection.select_rows(sql).map(&:first)
+      end
+
+      def recreate_dropped_views(old_views, current_views, indexes: [], triggers: [], view_order: [])
         index_reapplier = IndexReapplication.new(connection: connection)
+        trigger_reapplier = TriggerReapplication.new(connection: connection)
 
         # Find any views that were lost
         dropped_views = old_views.reject{|ov| current_views.any?{|cv| ov.name == cv.name}}
         # Recreate them
-        dropped_views.each do |view|
+
+        # Merge the list of dropped views with the list of the ordering we got from the original
+        # view's dependency tree
+        rebuild_order = view_order.map {|ov| dropped_views.find {|dv| dv.name == ov }}.compact
+
+        rebuild_order.each do |view|
           if view.materialized
             create_materialized_view view.name, view.definition
             # Also recreate any indexes that were lost
             lost_indexes = indexes.select{|index| index.object_name == view.name}
             lost_indexes.each{|index| index_reapplier.try_index_create  index}
+            # Also recreate any triggers that were lost
+
           else
             create_view view.name, view.definition
           end
+
+          lost_triggers = triggers.select {|t| t.table == view.name }
+          lost_triggers.each{|trigger| trigger_reapplier.try_trigger_create  trigger}
         end
       end
     end
