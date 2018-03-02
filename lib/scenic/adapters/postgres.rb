@@ -92,14 +92,18 @@ module Scenic
           end
           # Get a list of existing triggers
           triggers = Triggers.new(connection: connection)
-          view_triggers = existing_views.map do |view|
+          view_triggers = views.map do |view|
             triggers.on(view.name)
           end.flatten
-          order_of_views =  order_of_view_dependencies_for(existing_views)
+          order_of_views =  order_of_view_dependencies_for(views)
         end
 
         drop_view(name, cascade)
         create_view(name, sql_definition)
+
+        trigger_reapplier = TriggerReapplication.new(connection: connection)
+        lost_triggers = view_triggers.select {|t| t.table == name }
+        lost_triggers.each{|trigger| trigger_reapplier.try_trigger_create  trigger}
 
         if cascade
           recreate_dropped_views(existing_views, views, indexes: view_indexes, triggers: view_triggers, view_order: order_of_views)

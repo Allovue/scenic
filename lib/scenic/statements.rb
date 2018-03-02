@@ -100,7 +100,6 @@ module Scenic
           "sql_definition and version cannot both be set",
         )
       end
-
       sql_definition ||= definition(name, version)
 
       if materialized
