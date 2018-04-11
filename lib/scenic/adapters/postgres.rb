@@ -83,7 +83,8 @@ module Scenic
       def update_view(name, sql_definition, cascade=false)
         if cascade
           # Get existing views that could be dependent on this one.
-          existing_views = views.reject{|v| v.name == name}
+          # removing leading namespace, if any.
+          existing_views = views.reject{|v| v.name.split('.').last == name}
 
           # Get indexes of existing materialized views
           indexes = Indexes.new(connection: connection)
@@ -97,7 +98,6 @@ module Scenic
           end.flatten
           order_of_views =  order_of_view_dependencies_for(views)
         end
-
         drop_view(name, cascade)
         create_view(name, sql_definition)
 
@@ -290,33 +290,43 @@ module Scenic
       end
 
       def order_of_view_dependencies_for(array_of_views)
-
-        query_fragment = array_of_views.map {|view| "'#{view.name}'"}.join(', ')
+        # de-namespace the views for this check
+        query_fragment = array_of_views.
+        map(&:name).
+        map {|maybe_namespaced| maybe_namespaced.split('.').last }.
+        map {|view| "'#{view}'"}.join(', ')
         sql = <<-SQL
           WITH RECURSIVE t AS
             -- Get every view & materialized view, assign a level 0
             ( SELECT c.oid,
+                     pg_namespace.nspname,
                      c.relname,
                      0 AS LEVEL
              FROM pg_class c
              JOIN pg_namespace ON c.relnamespace = pg_namespace.oid
-             WHERE c.relkind IN ('v', 'm') AND pg_namespace.nspname = 'public'
+             WHERE c.relkind IN ('v', 'm')
+             AND c.relname NOT IN (SELECT extname FROM pg_extension)
+             -- Only look at views in our current schema search_path
+             AND pg_namespace.nspname = ANY (current_schemas(false))
              -- Union back on ourselves, increasing the level to indicate that the view is dependent
              UNION ALL SELECT c.oid,
+                              pg_namespace.nspname,
                               c.relname,
                               a.level+1
              FROM t a
              JOIN pg_depend d ON d.refobjid=a.oid
              JOIN pg_rewrite w ON w.oid= d.objid AND w.ev_class!=a.oid
-             JOIN pg_class c ON c.oid=w.ev_class)
+             JOIN pg_class c ON c.oid=w.ev_class
+             JOIN pg_namespace ON c.relnamespace = pg_namespace.oid
+             AND pg_namespace.nspname = ANY (current_schemas(false))
+             )
           -- Take the max level for each view.
-          SELECT relname, MAX(level) AS level
+          SELECT relname, nspname, MAX(level) AS level
           FROM t
           WHERE relname IN (#{query_fragment})
-          GROUP BY relname
+          GROUP BY relname, nspname
           ORDER BY level asc;
         SQL
-
         connection.select_rows(sql).map(&:first)
       end
 
@@ -329,8 +339,8 @@ module Scenic
         # Recreate them
 
         # Merge the list of dropped views with the list of the ordering we got from the original
-        # view's dependency tree
-        rebuild_order = view_order.map {|ov| dropped_views.find {|dv| dv.name == ov }}.compact
+        # view's dependency tree, removing namespaces so comparisons work
+        rebuild_order = view_order.map {|ov| dropped_views.find {|dv| dv.name.split('.').last == ov }}.compact
 
         rebuild_order.each do |view|
           if view.materialized
