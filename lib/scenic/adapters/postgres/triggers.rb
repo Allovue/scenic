@@ -29,6 +29,7 @@ module Scenic
 			action_orientation, action_timing
 			FROM information_schema.triggers
 			WHERE event_object_table = '#{name}'
+			AND event_object_schema = ANY (current_schemas(false))
 			GROUP BY event_object_table,
 			trigger_name, action_statement,
 			action_orientation, action_timing
