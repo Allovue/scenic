@@ -37,9 +37,9 @@ module Scenic
           end
 
           if success
-            say "trigger '#{trigger.name}' on '#{trigger.table}' has been recreated"
+            say "trigger '#{trigger.name}' on '#{trigger.namespace}.#{trigger.table}' has been recreated"
           else
-            say "trigger '#{trigger.name}' on '#{trigger.table}' is no longer valid and has been dropped."
+            say "trigger '#{trigger.name}' on '#{trigger.namespace}.#{trigger.table}' is no longer valid and has been dropped."
           end
         end
 
