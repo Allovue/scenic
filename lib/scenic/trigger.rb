@@ -8,20 +8,21 @@ module Scenic
   # @api extension
   class Trigger
 
-  	attr_reader :event, :table, :name, :action, :scope, :timing
+  	attr_reader :event, :namespace, :table, :name, :action, :scope, :timing
 
   	def definition
   	<<-DDL
   	  CREATE TRIGGER #{name}
   	  #{@timing} #{@event}
-  	  ON #{@table}
+  	  ON "#{@namespace}".#{@table}
   	  FOR EACH #{@scope}
   	  #{@action};
   	DDL
   	end
 
-    def initialize(event:, table:, name:, action:, scope:, timing:)
+    def initialize(event:, namespace:, table:, name:, action:, scope:, timing:)
       @event = event
+      @namespace = namespace
       @table = table
       @name  = name
       @action = action

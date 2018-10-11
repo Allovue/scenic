@@ -354,7 +354,7 @@ module Scenic
             create_view view.name, view.definition
           end
 
-          lost_triggers = triggers.select {|t| t.table == view.name }
+          lost_triggers = triggers.select {|t| t.table == view.name.split('.').last }
           lost_triggers.each{|trigger| trigger_reapplier.try_trigger_create  trigger}
         end
       end
