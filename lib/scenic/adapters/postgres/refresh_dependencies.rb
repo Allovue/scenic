@@ -2,25 +2,29 @@ module Scenic
   module Adapters
     class Postgres
       class RefreshDependencies
-        def self.call(name, adapter, connection)
-          new(name, adapter, connection).call
+        def self.call(name, adapter, connection, concurrently: false)
+          new(name, adapter, connection, concurrently: concurrently).call
         end
 
-        def initialize(name, adapter, connection)
+        def initialize(name, adapter, connection, concurrently:)
           @name = name
           @adapter = adapter
           @connection = connection
+          @concurrently = concurrently
         end
 
         def call
           dependencies.each do |dependency|
-            adapter.refresh_materialized_view(dependency)
+            adapter.refresh_materialized_view(
+              dependency,
+              concurrently: concurrently,
+            )
           end
         end
 
         private
 
-        attr_reader :name, :adapter, :connection
+        attr_reader :name, :adapter, :connection, :concurrently
 
         class DependencyParser
           def initialize(raw_dependencies, view_to_refresh)
@@ -46,11 +50,20 @@ module Scenic
           def to_sorted_array
             dependency_hash = parse_to_hash(raw_dependencies)
             sorted_arr = tsort(dependency_hash)
+
             idx = sorted_arr.find_index do |dep|
-              dep.include?(view_to_refresh.to_s)
+              if view_to_refresh.to_s.include?(".")
+                dep == view_to_refresh.to_s
+              else
+                dep.ends_with?(".#{view_to_refresh}")
+              end
             end
-            return [] if idx.nil?
-            sorted_arr[0...idx]
+
+            if idx.present?
+              sorted_arr[0...idx]
+            else
+              []
+            end
           end
 
           private

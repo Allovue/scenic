@@ -27,6 +27,20 @@ module Scenic
           expect(view.materialized).to eq true
         end
 
+        it "handles semicolon in definition when using `with no data`" do
+          adapter = Postgres.new
+
+          adapter.create_materialized_view(
+            "greetings",
+            "SELECT text 'hi' AS greeting; \n",
+            no_data: true,
+          )
+
+          view = adapter.views.first
+          expect(view.name).to eq("greetings")
+          expect(view.materialized).to eq true
+        end
+
         it "raises an exception if the version of PostgreSQL is too old" do
           connection = double("Connection", supports_materialized_views?: false)
           connectable = double("Connectable", connection: connection)
@@ -104,9 +118,15 @@ module Scenic
           connection = double("Connection").as_null_object
           connectable = double("Connectable", connection: connection)
           adapter = Postgres.new(connectable)
-          expect(Scenic::Adapters::Postgres::RefreshDependencies).
-            to receive(:call).with(:tests, adapter, connection)
-          adapter.refresh_materialized_view(:tests, cascade: true)
+          expect(Scenic::Adapters::Postgres::RefreshDependencies)
+            .to receive(:call)
+            .with(:tests, adapter, connection, concurrently: true)
+
+          adapter.refresh_materialized_view(
+            :tests,
+            cascade: true,
+            concurrently: true,
+          )
         end
 
         context "refreshing concurrently" do

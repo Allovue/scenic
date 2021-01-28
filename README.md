@@ -1,10 +1,10 @@
 # Scenic
 
-![Scenic Landscape](https://images.thoughtbot.com/announcing-scenic--versioned-database-views-for-rails/MRUcPsxrTGCeWKyE59Zg_landscape.png)
+![Scenic Landscape](https://user-images.githubusercontent.com/152152/49344534-a8817480-f646-11e8-8431-3d95d349c070.png)
 
-[![Build Status](https://travis-ci.org/thoughtbot/scenic.svg)](https://travis-ci.org/thoughtbot/scenic)
-[![Code Climate](https://codeclimate.com/repos/53c9736269568066a3000c35/badges/85aa9b19f3037252c55d/gpa.svg)](https://codeclimate.com/repos/53c9736269568066a3000c35/feed)
-[![Documentation Quality](http://inch-ci.org/github/thoughtbot/scenic.svg?branch=master)](http://inch-ci.org/github/thoughtbot/scenic)
+[![Build Status](https://github.com/scenic-views/scenic/workflows/CI/badge.svg)](https://github.com/scenic-views/scenic/actions?query=workflow%3ACI+branch%3Amaster)
+[![Documentation Quality](http://inch-ci.org/github/scenic-views/scenic.svg?branch=master)](http://inch-ci.org/github/scenic-views/scenic)
+[![Reviewed by Hound](https://img.shields.io/badge/Reviewed_by-Hound-8E64B0.svg)](https://houndci.com)
 
 Scenic adds methods to `ActiveRecord::Migration` to create and manage database
 views in Rails.
@@ -20,6 +20,12 @@ the database console during development.
 Scenic ships with support for PostgreSQL. The adapter is configurable (see
 `Scenic::Configuration`) and has a minimal interface (see
 `Scenic::Adapters::Postgres`) that other gems can provide.
+
+## So how do I install this?
+
+If you're using Postgres, Add `gem "scenic"` to your Gemfile and run `bundle
+install`. If you're using something other than Postgres, check out the available
+[third party adapters](https://github.com/scenic-views/scenic#faqs).
 
 ## Great, how do I create a view?
 
@@ -88,7 +94,7 @@ when some of those views may be materialized and take a long time to recreate.
 
 You can use `replace_view` to generate a CREATE OR REPLACE VIEW SQL statement.
 
-See postgresql documentation on how this works:
+See Postgres documentation on how this works:
 http://www.postgresql.org/docs/current/static/sql-createview.html
 
 To start replacing a view run the generator like for a regular change:
@@ -129,7 +135,7 @@ ActiveRecord or ARel queries. As far as ActiveRecord is concerned, a view is
 no different than a table.
 
 ```ruby
-class SearchResult < ActiveRecord::Base
+class SearchResult < ApplicationRecord
   belongs_to :searchable, polymorphic: true
 
   # this isn't strictly necessary, but it will prevent
@@ -212,7 +218,7 @@ You can get around these issues by setting the primary key column on your Rails
 model like so:
 
 ```ruby
-class People < ActiveRecord::Base
+class People < ApplicationRecord
   self.primary_key = :my_unique_identifier_field
 end
 ```
@@ -247,21 +253,17 @@ We are aware of the following existing adapter libraries for Scenic which may
 meet your needs:
 
 * [scenic_sqlite_adapter](https://github.com/pdebelak/scenic_sqlite_adapter)
-* [scenic-mysql_adapter](https://github.com/EmpaticoOrg/scenic-mysql_adapter.)
+* [scenic-mysql_adapter](https://github.com/EmpaticoOrg/scenic-mysql_adapter)
+* [scenic-sqlserver-adapter](https://github.com/ClickMechanic/scenic_sqlserver_adapter)
+* [scenic-oracle_adapter](https://github.com/cdinger/scenic-oracle_adapter)
+
+Please note that the maintainers of Scenic make no assertions about the
+quality or security of the above adapters.
 
 ## About
 
-Scenic is maintained by [Derek Prior] and [Caleb Thompson], funded by
-thoughtbot, inc. The names and logos for thoughtbot are trademarks of
-thoughtbot, inc.
+Scenic is maintained by [Derek Prior], [Caleb Hearth], and you, our
+contributors.
 
 [Derek Prior]: http://prioritized.net
-[Caleb Thompson]: http://calebthompson.io
-
-![thoughtbot](http://presskit.thoughtbot.com/images/thoughtbot-logo-for-readmes.svg)
-
-We love open source software!  See [our other projects][community] or [hire
-us][hire] to help build your product.
-
-[community]: https://thoughtbot.com/community?utm_source=github
-[hire]: https://thoughtbot.com/hire-us?utm_source=github
+[Caleb Hearth]: http://calebhearth.com

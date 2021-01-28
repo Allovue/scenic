@@ -1,24 +1,22 @@
 # Contributing
 
 We love contributions from everyone.  By participating in this project, you
-agree to abide by the thoughtbot [code of conduct].
+agree to abide by our [code of conduct].
 
-[code of conduct]: https://thoughtbot.com/open-source-code-of-conduct
-
-We expect everyone to follow the code of conduct anywhere in thoughtbot's
-project codebases, issue trackers, chatrooms, and mailing lists.
+[code of conduct]: CODE_OF_CONDUCT.md
 
 ## Contributing Code
 
 1. Fork the repository.
 2. Run `bin/setup`, which will install dependencies and create the dummy
    application database.
-3. Run `bin/appraisal rake` to verify that the tests pass against all
-   supported versions of Rails.
-4. Make your change with new passing tests, following the [style guide].
+3. Run `rake` to verify that the tests pass against the version of Rails you are
+   running locally.
+4. Make your change with new passing tests, following existing style.
 5. Write a [good commit message], push your fork, and submit a pull request.
+6. CI will run the test suite on all configured versions of Ruby and Rails.
+   Address any failures.
 
-[style guide]: https://github.com/thoughtbot/guides/tree/master/style
 [good commit message]: http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html
 
 Others will give constructive feedback.  This is a time for discussion and

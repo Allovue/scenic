@@ -8,7 +8,7 @@ module Scenic
     class ViewGenerator < Rails::Generators::NamedBase
       include Rails::Generators::Migration
       include Scenic::Generators::Materializable
-      source_root File.expand_path("../templates", __FILE__)
+      source_root File.expand_path("templates", __dir__)
 
       def create_views_directory
         unless views_directory_path.exist?
@@ -56,7 +56,7 @@ module Scenic
 
         def migration_class_name
           if creating_new_view?
-            "Create#{class_name.gsub('.', '').pluralize}"
+            "Create#{class_name.tr('.', '').pluralize}"
           else
             "Update#{class_name.pluralize}ToVersion#{version}"
           end
@@ -73,8 +73,14 @@ module Scenic
 
       private
 
+      alias singular_name file_name
+
+      def file_name
+        super.tr(".", "_")
+      end
+
       def views_directory_path
-        @views_directory_path ||= Rails.root.join(*%w(db views))
+        @views_directory_path ||= Rails.root.join("db", "views")
       end
 
       def version_regex
@@ -82,7 +88,7 @@ module Scenic
       end
 
       def creating_new_view?
-        previous_version == 0
+        previous_version.zero?
       end
 
       def definition
@@ -91,10 +97,6 @@ module Scenic
 
       def previous_definition
         Scenic::Definition.new(plural_file_name, previous_version)
-      end
-
-      def plural_file_name
-        @plural_file_name ||= file_name.pluralize.gsub(".", "_")
       end
 
       def destroying?
@@ -106,6 +108,14 @@ module Scenic
           "\"#{plural_name}\""
         else
           ":#{plural_name}"
+        end
+      end
+
+      def create_view_options
+        if materialized?
+          ", materialized: #{no_data? ? '{ no_data: true }' : true}"
+        else
+          ""
         end
       end
 
